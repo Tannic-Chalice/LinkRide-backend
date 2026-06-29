@@ -29,10 +29,10 @@ public class WalletTransaction {
     private BigDecimal amount;
 
     @Column(name = "transaction_type")
-    private String transactionType; // "CREDIT" or "DEBIT"
+    private String transactionType;
 
     @Column(name = "status")
-    private String status; // "PENDING", "SUCCESS", "FAILED"
+    private String status;
 
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)

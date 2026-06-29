@@ -10,4 +10,10 @@ import java.util.UUID;
 @Repository
 public interface VehicleRepository extends JpaRepository<Vehicle, UUID> {
     List<Vehicle> findByOwnerId(UUID ownerId);
+
+    /**
+     * Used to enforce unique number plate constraint at the service level
+     * before attempting a DB insert, allowing us to return a clean 409 Conflict.
+     */
+    boolean existsByNumberPlate(String numberPlate);
 }
