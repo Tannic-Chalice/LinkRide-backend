@@ -42,6 +42,9 @@ public class Vehicle {
     @Column(name = "is_verified")
     private Boolean isVerified = false;
 
+    @Column(name = "is_active", nullable = false)
+    private Boolean isActive = true;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

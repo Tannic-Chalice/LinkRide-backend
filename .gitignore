@@ -33,3 +33,7 @@ build/
 .vscode/
 
 .env
+
+### Project knowledge base (working notes, not shipped docs) ###
+/memory/
+/docs/
