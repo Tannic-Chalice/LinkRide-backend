@@ -4,6 +4,7 @@ import com.linkride.backend.entity.User;
 import com.linkride.backend.entity.Vehicle;
 import com.linkride.backend.location.GeoPoint;
 import com.linkride.backend.route.RouteGenerationState;
+import com.linkride.backend.route.geometry.RouteGeometry;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
@@ -94,6 +95,15 @@ public class Ride {
 
     @Column(name = "estimated_duration_seconds")
     private Integer estimatedDurationSeconds;
+
+    /**
+     * Decoded, cumulative-distance/time-annotated route geometry (design doc §2.1) — computed
+     * once here at creation time so passenger search never has to redecode this ride's polyline.
+     * Null unless {@code routeGenerationState == READY}.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "route_geometry", columnDefinition = "jsonb")
+    private RouteGeometry routeGeometry;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "route_generation_state", nullable = false)

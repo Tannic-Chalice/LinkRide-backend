@@ -9,9 +9,11 @@ import com.linkride.backend.route.RouteFailureReason;
 import com.linkride.backend.route.RouteGenerationState;
 import com.linkride.backend.route.RouteProvider;
 import com.linkride.backend.route.RouteResult;
+import com.linkride.backend.route.geometry.RouteGeometryBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,6 +27,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,7 +52,9 @@ class RideServiceTest {
 
     @BeforeEach
     void setUp() {
-        rideService = new RideService(rideRepository, rideWaypointRepository, userRepository, vehicleRepository, routeProvider);
+        // Real builder: it's pure decode/annotate logic, no dependencies — mocking it would just add noise.
+        rideService = new RideService(rideRepository, rideWaypointRepository, userRepository, vehicleRepository,
+                routeProvider, new RouteGeometryBuilder());
 
         driverId = UUID.randomUUID();
         driver = new User();
@@ -115,21 +120,43 @@ class RideServiceTest {
         assertThat(response.getRouteGenerationState()).isEqualTo(RouteGenerationState.UNROUTABLE);
         assertThat(response.getRoutePolyline()).isNull();
         assertThat(response.getStatus()).isEqualTo(RideStatus.SCHEDULED);
+
+        ArgumentCaptor<Ride> rideCaptor = ArgumentCaptor.forClass(Ride.class);
+        verify(rideRepository).save(rideCaptor.capture());
+        assertThat(rideCaptor.getValue().getRouteGeometry()).isNull();
     }
 
     @Test
     void createRide_routeReady_persistsRouteData() {
         when(vehicleRepository.findByOwnerIdAndIsActiveTrueAndIsVerifiedTrue(driverId))
                 .thenReturn(Optional.of(vehicle));
+        // Google's own documented example polyline — a real encoded polyline is required now
+        // that route creation also decodes it into RouteGeometry (Phase 2B.4).
         when(routeProvider.computeRoute(any(), any(), any()))
-                .thenReturn(RouteResult.ready("encodedPolyline", 5000, 600));
+                .thenReturn(RouteResult.ready("_p~iF~ps|U_ulLnnqC_mqNvxq`@", 5000, 600));
 
         RideResponse response = rideService.createRide(driverId, validRequest());
 
         assertThat(response.getRouteGenerationState()).isEqualTo(RouteGenerationState.READY);
-        assertThat(response.getRoutePolyline()).isEqualTo("encodedPolyline");
+        assertThat(response.getRoutePolyline()).isEqualTo("_p~iF~ps|U_ulLnnqC_mqNvxq`@");
         assertThat(response.getEstimatedDistanceMeters()).isEqualTo(5000);
         assertThat(response.getEstimatedDurationSeconds()).isEqualTo(600);
+    }
+
+    @Test
+    void createRide_routeReady_populatesRouteGeometryOnPersistedEntity() {
+        when(vehicleRepository.findByOwnerIdAndIsActiveTrueAndIsVerifiedTrue(driverId))
+                .thenReturn(Optional.of(vehicle));
+        // Google's own documented example polyline — enough to prove wiring end-to-end.
+        when(routeProvider.computeRoute(any(), any(), any()))
+                .thenReturn(RouteResult.ready("_p~iF~ps|U_ulLnnqC_mqNvxq`@", 5000, 600));
+
+        rideService.createRide(driverId, validRequest());
+
+        ArgumentCaptor<Ride> rideCaptor = ArgumentCaptor.forClass(Ride.class);
+        verify(rideRepository).save(rideCaptor.capture());
+        assertThat(rideCaptor.getValue().getRouteGeometry()).isNotNull();
+        assertThat(rideCaptor.getValue().getRouteGeometry().totalDistanceMeters()).isEqualTo(5000);
     }
 
     @Test

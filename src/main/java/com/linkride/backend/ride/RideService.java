@@ -6,8 +6,10 @@ import com.linkride.backend.location.GeoPointDto;
 import com.linkride.backend.location.GeoPoints;
 import com.linkride.backend.repository.UserRepository;
 import com.linkride.backend.repository.VehicleRepository;
+import com.linkride.backend.route.RouteGenerationState;
 import com.linkride.backend.route.RouteProvider;
 import com.linkride.backend.route.RouteResult;
+import com.linkride.backend.route.geometry.RouteGeometryBuilder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -27,6 +29,7 @@ public class RideService {
     private final UserRepository userRepository;
     private final VehicleRepository vehicleRepository;
     private final RouteProvider routeProvider;
+    private final RouteGeometryBuilder routeGeometryBuilder;
 
     /**
      * Creates a ride for the authenticated driver.
@@ -85,6 +88,11 @@ public class RideService {
         ride.setEstimatedDistanceMeters(route.getDistanceMeters());
         ride.setEstimatedDurationSeconds(route.getDurationSeconds());
         ride.setRouteGenerationState(route.getState());
+
+        if (route.getState() == RouteGenerationState.READY) {
+            ride.setRouteGeometry(routeGeometryBuilder.build(
+                    route.getPolyline(), route.getDistanceMeters(), route.getDurationSeconds()));
+        }
 
         Ride savedRide = rideRepository.save(ride);
 
