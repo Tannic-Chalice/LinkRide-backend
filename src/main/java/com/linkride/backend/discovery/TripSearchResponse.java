@@ -8,10 +8,10 @@ import java.util.List;
 /**
  * Response envelope for {@code POST /api/rides/search}.
  *
- * <p>{@code passengerRoute} is always populated (Phase 2B.2). {@code matches} is the set of
- * rides surviving shared-corridor computation (Phase 2B.5) — see {@link RideMatchDto} for what
- * that does and doesn't yet guarantee. Order is not meaningful until ranking (Phase 2B.8)
- * exists.</p>
+ * <p>{@code passengerRoute} is always populated (Phase 2B.2). {@code matches} is the ranked,
+ * top-K-truncated set of rides surviving shared-corridor computation, hard-constraint validation,
+ * and scoring (Phase 2B.5–2B.8) — see {@link RideMatchDto} for the full pipeline and what each
+ * field guarantees. Order is meaningful: best match first.</p>
  */
 @Data
 @Builder
