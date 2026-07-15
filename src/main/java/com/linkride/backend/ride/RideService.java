@@ -1,5 +1,6 @@
 package com.linkride.backend.ride;
 
+import com.linkride.backend.booking.BookingRepository;
 import com.linkride.backend.entity.User;
 import com.linkride.backend.entity.Vehicle;
 import com.linkride.backend.location.GeoPointDto;
@@ -30,6 +31,7 @@ public class RideService {
     private final VehicleRepository vehicleRepository;
     private final RouteProvider routeProvider;
     private final RouteGeometryBuilder routeGeometryBuilder;
+    private final BookingRepository bookingRepository;
 
     /**
      * Creates a ride for the authenticated driver.
@@ -114,5 +116,76 @@ public class RideService {
 
     private boolean isSameLocation(GeoPointDto a, GeoPointDto b) {
         return a.getLatitude().equals(b.getLatitude()) && a.getLongitude().equals(b.getLongitude());
+    }
+
+    /**
+     * Cancels a SCHEDULED ride. Cascades: every {@code PENDING}/{@code ACCEPTED} booking on it is
+     * cancelled too (driver-initiated) — seats aren't released, the ride is dead so its
+     * {@code available_seats} no longer matters.
+     */
+    @Transactional
+    public RideResponse cancelRide(UUID driverId, UUID rideId) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ride not found"));
+
+        if (!ride.getDriver().getId().equals(driverId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not drive this ride");
+        }
+
+        if (rideRepository.cancelIfScheduled(rideId) == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ride cannot be cancelled from its current state");
+        }
+
+        ride.setStatus(RideStatus.CANCELLED);
+        bookingRepository.cancelAllActiveBookingsForRide(rideId);
+
+        return RideResponse.from(ride, rideWaypointRepository.findByRide_RideIdOrderBySequenceAsc(rideId));
+    }
+
+    /**
+     * Starts a SCHEDULED ride. Cascades: any request still {@code PENDING} at this moment expires
+     * — the driver never decided it in time, distinct from an explicit {@code REJECTED}. Never
+     * triggered by {@code departureTime} passing; only this explicit call moves the ride, and with
+     * it, its stale requests.
+     */
+    @Transactional
+    public RideResponse startRide(UUID driverId, UUID rideId) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ride not found"));
+
+        if (!ride.getDriver().getId().equals(driverId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not drive this ride");
+        }
+
+        if (rideRepository.startIfScheduled(rideId) == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ride cannot be started from its current state");
+        }
+
+        ride.setStatus(RideStatus.IN_PROGRESS);
+        bookingRepository.expireAllPendingBookingsForRide(rideId);
+
+        return RideResponse.from(ride, rideWaypointRepository.findByRide_RideIdOrderBySequenceAsc(rideId));
+    }
+
+    /**
+     * Completes an IN_PROGRESS ride. Cascades: every {@code ACCEPTED} booking completes with it.
+     */
+    @Transactional
+    public RideResponse completeRide(UUID driverId, UUID rideId) {
+        Ride ride = rideRepository.findById(rideId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Ride not found"));
+
+        if (!ride.getDriver().getId().equals(driverId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "You do not drive this ride");
+        }
+
+        if (rideRepository.completeIfInProgress(rideId) == 0) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ride cannot be completed from its current state");
+        }
+
+        ride.setStatus(RideStatus.COMPLETED);
+        bookingRepository.completeAllAcceptedBookingsForRide(rideId);
+
+        return RideResponse.from(ride, rideWaypointRepository.findByRide_RideIdOrderBySequenceAsc(rideId));
     }
 }

@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,7 +16,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.UUID;
 
 /**
- * Trip Discovery Phase 1 — driver ride creation only (no matching/booking yet).
+ * Driver ride creation (Phase 1) plus ride lifecycle transitions (Phase 3.6). Booking actions
+ * live in the {@code com.linkride.backend.booking} package instead.
  *
  * <p>Security: all routes require a valid Supabase JWT (enforced globally by
  * {@link com.linkride.backend.config.SecurityConfig}). The driver's UUID is always
@@ -41,6 +43,54 @@ public class RideController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest()
                     .body(new ErrorResponse("VALIDATION_ERROR", e.getMessage()));
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode())
+                    .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
+        }
+    }
+
+    @PostMapping("/{rideId}/cancel")
+    public ResponseEntity<?> cancelRide(@PathVariable UUID rideId, Authentication authentication) {
+        try {
+            UUID driverId = UUID.fromString(authentication.getName());
+            RideResponse response = rideService.cancelRide(driverId, rideId);
+            return ResponseEntity.ok(response);
+
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode())
+                    .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
+        }
+    }
+
+    @PostMapping("/{rideId}/start")
+    public ResponseEntity<?> startRide(@PathVariable UUID rideId, Authentication authentication) {
+        try {
+            UUID driverId = UUID.fromString(authentication.getName());
+            RideResponse response = rideService.startRide(driverId, rideId);
+            return ResponseEntity.ok(response);
+
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode())
+                    .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
+        }
+    }
+
+    @PostMapping("/{rideId}/complete")
+    public ResponseEntity<?> completeRide(@PathVariable UUID rideId, Authentication authentication) {
+        try {
+            UUID driverId = UUID.fromString(authentication.getName());
+            RideResponse response = rideService.completeRide(driverId, rideId);
+            return ResponseEntity.ok(response);
+
         } catch (ResponseStatusException e) {
             return ResponseEntity.status(e.getStatusCode())
                     .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
