@@ -1,6 +1,5 @@
 package com.linkride.backend.ride;
 
-import com.linkride.backend.dto.ErrorResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -11,7 +10,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.UUID;
 
@@ -31,72 +29,33 @@ public class RideController {
     private final RideService rideService;
 
     @PostMapping
-    public ResponseEntity<?> createRide(
+    public ResponseEntity<RideResponse> createRide(
             @Valid @RequestBody RideCreateRequest request,
             Authentication authentication) {
 
-        try {
-            UUID driverId = UUID.fromString(authentication.getName());
-            RideResponse response = rideService.createRide(driverId, request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(new ErrorResponse("VALIDATION_ERROR", e.getMessage()));
-        } catch (ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode())
-                    .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
-        }
+        UUID driverId = UUID.fromString(authentication.getName());
+        RideResponse response = rideService.createRide(driverId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @PostMapping("/{rideId}/cancel")
-    public ResponseEntity<?> cancelRide(@PathVariable UUID rideId, Authentication authentication) {
-        try {
-            UUID driverId = UUID.fromString(authentication.getName());
-            RideResponse response = rideService.cancelRide(driverId, rideId);
-            return ResponseEntity.ok(response);
-
-        } catch (ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode())
-                    .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
-        }
+    public ResponseEntity<RideResponse> cancelRide(@PathVariable UUID rideId, Authentication authentication) {
+        UUID driverId = UUID.fromString(authentication.getName());
+        RideResponse response = rideService.cancelRide(driverId, rideId);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{rideId}/start")
-    public ResponseEntity<?> startRide(@PathVariable UUID rideId, Authentication authentication) {
-        try {
-            UUID driverId = UUID.fromString(authentication.getName());
-            RideResponse response = rideService.startRide(driverId, rideId);
-            return ResponseEntity.ok(response);
-
-        } catch (ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode())
-                    .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
-        }
+    public ResponseEntity<RideResponse> startRide(@PathVariable UUID rideId, Authentication authentication) {
+        UUID driverId = UUID.fromString(authentication.getName());
+        RideResponse response = rideService.startRide(driverId, rideId);
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{rideId}/complete")
-    public ResponseEntity<?> completeRide(@PathVariable UUID rideId, Authentication authentication) {
-        try {
-            UUID driverId = UUID.fromString(authentication.getName());
-            RideResponse response = rideService.completeRide(driverId, rideId);
-            return ResponseEntity.ok(response);
-
-        } catch (ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode())
-                    .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
-        }
+    public ResponseEntity<RideResponse> completeRide(@PathVariable UUID rideId, Authentication authentication) {
+        UUID driverId = UUID.fromString(authentication.getName());
+        RideResponse response = rideService.completeRide(driverId, rideId);
+        return ResponseEntity.ok(response);
     }
 }

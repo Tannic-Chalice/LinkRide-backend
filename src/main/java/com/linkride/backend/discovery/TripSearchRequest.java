@@ -13,8 +13,8 @@ import java.time.OffsetDateTime;
  * Passenger-facing trip search payload — {@code POST /api/rides/search}.
  *
  * <p>{@code maxWalkToPickupMeters}/{@code maxWalkFromDropMeters} are optional overrides of the
- * system default walking tolerance. They're accepted and validated here but not yet used for
- * anything — that lands with corridor computation in Phase 2B.5.</p>
+ * system default walking tolerance. They're validated here and consumed by corridor computation
+ * — see {@code CorridorGenerationServiceImpl#resolveWalkToleranceMeters}.</p>
  */
 @Data
 public class TripSearchRequest {

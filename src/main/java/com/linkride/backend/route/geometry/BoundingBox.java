@@ -4,9 +4,8 @@ import java.util.List;
 
 /**
  * Axis-aligned lat/lng envelope of a route — the cheap AABB pre-filter from design doc §2.4,
- * meant to eliminate obviously unrelated routes before any per-point geometry runs. Not wired
- * into candidate generation yet (Phase 2B.3 documents that gap); this exists so that filter can
- * be added without introducing new geometry math at the same time.
+ * meant to eliminate obviously unrelated routes before any per-point geometry runs. Wired into
+ * candidate generation via {@code CorridorGenerationServiceImpl#overlaps}.
  */
 public record BoundingBox(double minLat, double maxLat, double minLng, double maxLng) {
 

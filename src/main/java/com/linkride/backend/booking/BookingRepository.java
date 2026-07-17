@@ -38,9 +38,10 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     boolean existsActiveBookingForRideAndPassenger(@Param("rideId") UUID rideId, @Param("passengerId") UUID passengerId);
 
     /**
-     * Driver cancelled the whole ride (RideService.cancelRide, Phase 3.6) — every still-live
-     * request or acceptance on it is cancelled too. Seats aren't released here: the ride is dead,
-     * so its available_seats no longer matters.
+     * Driver cancelled the whole ride (RideService.cancelRide, Phase 3.6; widened to
+     * {@code CHECKED_IN} in Phase 4.6) — every still-live request, acceptance, or already-boarded
+     * passenger is cancelled too. Seats aren't released here: the ride is dead, so its
+     * available_seats no longer matters.
      */
     @Modifying
     @Query("""
@@ -49,7 +50,8 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                    b.cancelledBy = com.linkride.backend.booking.CancelInitiator.DRIVER
             WHERE b.ride.rideId = :rideId
               AND b.status IN (com.linkride.backend.booking.BookingStatus.PENDING,
-                                com.linkride.backend.booking.BookingStatus.ACCEPTED)
+                                com.linkride.backend.booking.BookingStatus.ACCEPTED,
+                                com.linkride.backend.booking.BookingStatus.CHECKED_IN)
             """)
     int cancelAllActiveBookingsForRide(@Param("rideId") UUID rideId);
 
@@ -68,14 +70,48 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
     int expireAllPendingBookingsForRide(@Param("rideId") UUID rideId);
 
     /**
-     * Driver explicitly completed the ride (RideService.completeRide, Phase 3.6) — every accepted
-     * passenger's booking completes with it.
+     * Driver explicitly started the ride (RideService.startRide, Phase 4.6) — any booking still
+     * {@code ACCEPTED} at that moment was accepted but never boarded before the driver moved on.
+     * Distinct from {@code EXPIRED}: the driver did make a decision here — the passenger simply
+     * never checked in in time.
+     */
+    @Modifying
+    @Query("""
+            UPDATE Booking b SET b.status = com.linkride.backend.booking.BookingStatus.NO_SHOW
+            WHERE b.ride.rideId = :rideId
+              AND b.status = com.linkride.backend.booking.BookingStatus.ACCEPTED
+            """)
+    int markNoShowAllAcceptedBookingsForRide(@Param("rideId") UUID rideId);
+
+    /**
+     * Driver explicitly completed the ride (RideService.completeRide, Phase 3.6; retargeted from
+     * {@code ACCEPTED} to {@code CHECKED_IN} in Phase 4.6) — every checked-in passenger's booking
+     * completes with it. Targets {@code CHECKED_IN}, not {@code ACCEPTED}: by completion time
+     * nothing should still be bare {@code ACCEPTED} — {@code startRide}'s own cascade
+     * ({@link #markNoShowAllAcceptedBookingsForRide}) already resolved every {@code ACCEPTED}
+     * booking to either {@code CHECKED_IN} or {@code NO_SHOW} before the ride ever reached
+     * {@code IN_PROGRESS}.
      */
     @Modifying
     @Query("""
             UPDATE Booking b SET b.status = com.linkride.backend.booking.BookingStatus.COMPLETED
             WHERE b.ride.rideId = :rideId
-              AND b.status = com.linkride.backend.booking.BookingStatus.ACCEPTED
+              AND b.status = com.linkride.backend.booking.BookingStatus.CHECKED_IN
             """)
-    int completeAllAcceptedBookingsForRide(@Param("rideId") UUID rideId);
+    int completeAllCheckedInBookingsForRide(@Param("rideId") UUID rideId);
+
+    /**
+     * Every passenger currently relevant to a ride's boarding progress (Phase 4.5) —
+     * accepted-and-not-yet-boarded plus already-boarded. Deliberately hardcoded to this exact
+     * pair rather than a generic {@code ...StatusIn(List<BookingStatus>)} method, same reasoning
+     * as {@link #existsActiveBookingForRideAndPassenger}: a named, single-purpose query can't be
+     * called with the wrong status set by accident.
+     */
+    @Query("""
+            SELECT b FROM Booking b
+            WHERE b.ride.rideId = :rideId
+              AND b.status IN (com.linkride.backend.booking.BookingStatus.ACCEPTED,
+                                com.linkride.backend.booking.BookingStatus.CHECKED_IN)
+            """)
+    List<Booking> findBoardingCandidatesForRide(@Param("rideId") UUID rideId);
 }

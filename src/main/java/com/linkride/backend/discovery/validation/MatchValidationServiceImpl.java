@@ -10,7 +10,6 @@ import com.linkride.backend.route.geometry.RouteGeometry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -80,9 +79,8 @@ public class MatchValidationServiceImpl implements MatchValidationService {
 
     private boolean withinPickupTimeWindow(
             Ride ride, RouteGeometry driverGeometry, NearestPointOnRoute pickup, OffsetDateTime desiredDeparture) {
-        OffsetDateTime driverEtaAtPickup = RouteEtaCalculator.etaAt(
-                ride.getDepartureTime(), driverGeometry, pickup.cumulativeDistanceMeters());
-        long diffMinutes = Math.abs(Duration.between(desiredDeparture, driverEtaAtPickup).toMinutes());
+        long diffMinutes = RouteEtaCalculator.minutesOffsetFromEta(
+                desiredDeparture, ride.getDepartureTime(), driverGeometry, pickup.cumulativeDistanceMeters());
         return diffMinutes <= matchingProperties.getPickupTimeToleranceMinutes();
     }
 }

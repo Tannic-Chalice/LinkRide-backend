@@ -300,6 +300,15 @@ class RideServiceTest {
     }
 
     @Test
+    void startRide_happyPath_marksNoShowForStillAcceptedBookings() {
+        when(rideRepository.startIfScheduled(rideId)).thenReturn(1);
+
+        rideService.startRide(driverId, rideId);
+
+        verify(bookingRepository).markNoShowAllAcceptedBookingsForRide(rideId);
+    }
+
+    @Test
     void startRide_notTheDriver_throws403() {
         UUID strangerId = UUID.randomUUID();
 
@@ -319,16 +328,17 @@ class RideServiceTest {
                 .hasMessageContaining("cannot be started");
 
         verify(bookingRepository, never()).expireAllPendingBookingsForRide(any(UUID.class));
+        verify(bookingRepository, never()).markNoShowAllAcceptedBookingsForRide(any(UUID.class));
     }
 
     @Test
-    void completeRide_happyPath_completesAcceptedBookings() {
+    void completeRide_happyPath_completesCheckedInBookings() {
         when(rideRepository.completeIfInProgress(rideId)).thenReturn(1);
 
         RideResponse response = rideService.completeRide(driverId, rideId);
 
         assertThat(response.getStatus()).isEqualTo(RideStatus.COMPLETED);
-        verify(bookingRepository).completeAllAcceptedBookingsForRide(rideId);
+        verify(bookingRepository).completeAllCheckedInBookingsForRide(rideId);
     }
 
     @Test
@@ -350,6 +360,6 @@ class RideServiceTest {
                 .isInstanceOf(ResponseStatusException.class)
                 .hasMessageContaining("cannot be completed");
 
-        verify(bookingRepository, never()).completeAllAcceptedBookingsForRide(any(UUID.class));
+        verify(bookingRepository, never()).completeAllCheckedInBookingsForRide(any(UUID.class));
     }
 }

@@ -119,9 +119,12 @@ public class RideService {
     }
 
     /**
-     * Cancels a SCHEDULED ride. Cascades: every {@code PENDING}/{@code ACCEPTED} booking on it is
-     * cancelled too (driver-initiated) — seats aren't released, the ride is dead so its
-     * {@code available_seats} no longer matters.
+     * Cancels a SCHEDULED ride. Cascades: every {@code PENDING}/{@code ACCEPTED}/{@code
+     * CHECKED_IN} booking on it is cancelled too (driver-initiated) — seats aren't released, the
+     * ride is dead so its {@code available_seats} no longer matters. Reaching {@code CHECKED_IN}
+     * doesn't happen until after the driver has already opened the boarding screen, but the ride
+     * itself is still {@code SCHEDULED} the whole time boarding is in progress (Phase 4), so a
+     * driver cancelling mid-boarding is a real, reachable case, not just a defensive check.
      */
     @Transactional
     public RideResponse cancelRide(UUID driverId, UUID rideId) {
@@ -143,10 +146,13 @@ public class RideService {
     }
 
     /**
-     * Starts a SCHEDULED ride. Cascades: any request still {@code PENDING} at this moment expires
-     * — the driver never decided it in time, distinct from an explicit {@code REJECTED}. Never
-     * triggered by {@code departureTime} passing; only this explicit call moves the ride, and with
-     * it, its stale requests.
+     * Starts a SCHEDULED ride. Cascades two ways: any request still {@code PENDING} at this
+     * moment expires — the driver never decided it in time, distinct from an explicit {@code
+     * REJECTED}. Any booking still {@code ACCEPTED} — decided, but never boarded — becomes {@code
+     * NO_SHOW} (Phase 4.6): the driver's own boarding screen is where check-in happens, and once
+     * the driver swipes "Start Ride" that window is over. Never triggered by {@code
+     * departureTime} passing; only this explicit call moves the ride, and with it, its stale
+     * requests.
      */
     @Transactional
     public RideResponse startRide(UUID driverId, UUID rideId) {
@@ -163,12 +169,16 @@ public class RideService {
 
         ride.setStatus(RideStatus.IN_PROGRESS);
         bookingRepository.expireAllPendingBookingsForRide(rideId);
+        bookingRepository.markNoShowAllAcceptedBookingsForRide(rideId);
 
         return RideResponse.from(ride, rideWaypointRepository.findByRide_RideIdOrderBySequenceAsc(rideId));
     }
 
     /**
-     * Completes an IN_PROGRESS ride. Cascades: every {@code ACCEPTED} booking completes with it.
+     * Completes an IN_PROGRESS ride. Cascades: every {@code CHECKED_IN} booking completes with it
+     * (Phase 4.6 — previously {@code ACCEPTED}, back when boarding didn't exist as its own state;
+     * by the time a ride reaches completion, {@code startRide}'s own cascade has already resolved
+     * every {@code ACCEPTED} booking to either {@code CHECKED_IN} or {@code NO_SHOW}).
      */
     @Transactional
     public RideResponse completeRide(UUID driverId, UUID rideId) {
@@ -184,7 +194,7 @@ public class RideService {
         }
 
         ride.setStatus(RideStatus.COMPLETED);
-        bookingRepository.completeAllAcceptedBookingsForRide(rideId);
+        bookingRepository.completeAllCheckedInBookingsForRide(rideId);
 
         return RideResponse.from(ride, rideWaypointRepository.findByRide_RideIdOrderBySequenceAsc(rideId));
     }

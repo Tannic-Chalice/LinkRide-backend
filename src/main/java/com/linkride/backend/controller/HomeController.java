@@ -57,9 +57,6 @@ public class HomeController {
         } catch (RuntimeException e) {
             return ResponseEntity.status(404)
                 .body(new ErrorResponse("USER_NOT_FOUND", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
         }
     }
 }

@@ -60,9 +60,6 @@ public class FavoriteController {
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest()
                 .body(new ErrorResponse("BUSINESS_RULE_VIOLATION", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
         }
     }
 
@@ -94,9 +91,6 @@ public class FavoriteController {
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse("FAVORITE_NOT_FOUND", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
         }
     }
 
@@ -122,9 +116,6 @@ public class FavoriteController {
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse("FAVORITE_NOT_FOUND", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
         }
     }
 
@@ -160,9 +151,6 @@ public class FavoriteController {
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(new ErrorResponse("FAVORITE_NOT_FOUND", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
         }
     }
 }

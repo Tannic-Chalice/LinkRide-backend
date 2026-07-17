@@ -1,6 +1,5 @@
 package com.linkride.backend.booking;
 
-import com.linkride.backend.dto.ErrorResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -13,7 +12,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -36,46 +34,25 @@ public class BookingController {
     private final BookingService bookingService;
 
     @PostMapping
-    public ResponseEntity<?> requestBooking(
+    public ResponseEntity<BookingResponse> requestBooking(
             @PathVariable UUID rideId,
             @Valid @RequestBody BookingCreateRequest request,
             Authentication authentication) {
 
-        try {
-            UUID passengerId = UUID.fromString(authentication.getName());
-            BookingResponse response = bookingService.requestBooking(passengerId, rideId, request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                    .body(new ErrorResponse("VALIDATION_ERROR", e.getMessage()));
-        } catch (ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode())
-                    .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
-        }
+        UUID passengerId = UUID.fromString(authentication.getName());
+        BookingResponse response = bookingService.requestBooking(passengerId, rideId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /** Driver-only — every booking against a ride they drive, optionally filtered by status. */
     @GetMapping
-    public ResponseEntity<?> listBookingsForRide(
+    public ResponseEntity<List<BookingResponse>> listBookingsForRide(
             @PathVariable UUID rideId,
             @RequestParam(required = false) BookingStatus status,
             Authentication authentication) {
 
-        try {
-            UUID driverId = UUID.fromString(authentication.getName());
-            List<BookingResponse> response = bookingService.listBookingsForRide(driverId, rideId, status);
-            return ResponseEntity.ok(response);
-
-        } catch (ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode())
-                    .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
-        }
+        UUID driverId = UUID.fromString(authentication.getName());
+        List<BookingResponse> response = bookingService.listBookingsForRide(driverId, rideId, status);
+        return ResponseEntity.ok(response);
     }
 }

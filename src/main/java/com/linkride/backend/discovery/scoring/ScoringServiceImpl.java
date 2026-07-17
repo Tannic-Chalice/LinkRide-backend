@@ -12,7 +12,6 @@ import com.linkride.backend.route.geometry.RouteEtaCalculator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -111,9 +110,8 @@ public class ScoringServiceImpl implements ScoringService {
         double driverDetourDistanceMeters = 0;
         double driverDetourTimeSeconds = 2.0 * matchingProperties.getStopTimeSeconds();
 
-        OffsetDateTime driverEtaAtPickup = RouteEtaCalculator.etaAt(
-                ride.getDepartureTime(), ride.getRouteGeometry(), pickup.cumulativeDistanceMeters());
-        double timeWindowOffsetMinutes = Math.abs(Duration.between(desiredDeparture, driverEtaAtPickup).toMinutes());
+        double timeWindowOffsetMinutes = RouteEtaCalculator.minutesOffsetFromEta(
+                desiredDeparture, ride.getDepartureTime(), ride.getRouteGeometry(), pickup.cumulativeDistanceMeters());
 
         return new RawMetrics(
                 candidate, driverDetourDistanceMeters, driverDetourTimeSeconds, passengerDetourRatio,

@@ -1,6 +1,5 @@
 package com.linkride.backend.booking;
 
-import com.linkride.backend.dto.ErrorResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -10,7 +9,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.UUID;
@@ -35,58 +33,34 @@ public class BookingQueryController {
 
     /** The authenticated caller's own bookings across all rides, optionally filtered by status. */
     @GetMapping("/mine")
-    public ResponseEntity<?> listMyBookings(
+    public ResponseEntity<List<BookingResponse>> listMyBookings(
             @RequestParam(required = false) BookingStatus status,
             Authentication authentication) {
 
-        try {
-            UUID passengerId = UUID.fromString(authentication.getName());
-            List<BookingResponse> response = bookingService.listMyBookings(passengerId, status);
-            return ResponseEntity.ok(response);
-
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
-        }
+        UUID passengerId = UUID.fromString(authentication.getName());
+        List<BookingResponse> response = bookingService.listMyBookings(passengerId, status);
+        return ResponseEntity.ok(response);
     }
 
     /** Visible to the booking's own passenger or the ride's driver — nobody else. */
     @GetMapping("/{bookingId}")
-    public ResponseEntity<?> getBooking(
+    public ResponseEntity<BookingResponse> getBooking(
             @PathVariable UUID bookingId,
             Authentication authentication) {
 
-        try {
-            UUID requesterId = UUID.fromString(authentication.getName());
-            BookingResponse response = bookingService.getBooking(requesterId, bookingId);
-            return ResponseEntity.ok(response);
-
-        } catch (ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode())
-                    .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
-        }
+        UUID requesterId = UUID.fromString(authentication.getName());
+        BookingResponse response = bookingService.getBooking(requesterId, bookingId);
+        return ResponseEntity.ok(response);
     }
 
     /** Either the booking's own passenger or the ride's driver may cancel it. */
     @PostMapping("/{bookingId}/cancel")
-    public ResponseEntity<?> cancelBooking(
+    public ResponseEntity<BookingResponse> cancelBooking(
             @PathVariable UUID bookingId,
             Authentication authentication) {
 
-        try {
-            UUID requesterId = UUID.fromString(authentication.getName());
-            BookingResponse response = bookingService.cancelBooking(requesterId, bookingId);
-            return ResponseEntity.ok(response);
-
-        } catch (ResponseStatusException e) {
-            return ResponseEntity.status(e.getStatusCode())
-                    .body(new ErrorResponse(e.getStatusCode().toString(), e.getReason()));
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(new ErrorResponse("INTERNAL_ERROR", "An unexpected error occurred"));
-        }
+        UUID requesterId = UUID.fromString(authentication.getName());
+        BookingResponse response = bookingService.cancelBooking(requesterId, bookingId);
+        return ResponseEntity.ok(response);
     }
 }
