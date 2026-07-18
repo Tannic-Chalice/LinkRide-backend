@@ -8,11 +8,28 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.OffsetDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
 @Repository
 public interface RideRepository extends JpaRepository<Ride, UUID> {
+
+    /** Devtools only: every ride created by any of these drivers, for {@code reset()} to enumerate before deleting. */
+    List<Ride> findByDriver_IdIn(Collection<UUID> driverIds);
+
+    /**
+     * Devtools only: bulk cleanup for {@code reset()}. {@code ride_waypoints} has {@code ON DELETE
+     * CASCADE} back to {@code rides} at the database level (V2 migration), so it needs no separate
+     * delete here. {@code clearAutomatically = true} for the same reason as {@code
+     * VehicleRepository#deleteByOwnerIdIn} — this raw-SQL bulk delete must evict Hibernate's
+     * persistence context, or stale managed entities loaded earlier in {@code reset()} still
+     * reference a {@code User} about to be deleted, and a later flush throws {@code
+     * TransientObjectException}.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("DELETE FROM Ride r WHERE r.driver.id IN :driverIds")
+    int deleteByDriver_IdIn(@Param("driverIds") Collection<UUID> driverIds);
 
     /**
      * Coarse, inexpensive candidate pre-filter for passenger search (design doc §2.4) — seat

@@ -47,4 +47,34 @@ public final class PolylineCodec {
 
         return points;
     }
+
+    /** Encodes raw lat/lng points (precision 1e5) into a Google-encoded polyline string. */
+    public static String encode(List<LatLng> points) {
+        StringBuilder result = new StringBuilder();
+        long prevLat = 0;
+        long prevLng = 0;
+
+        for (LatLng point : points) {
+            long lat = Math.round(point.lat() * PRECISION);
+            long lng = Math.round(point.lng() * PRECISION);
+            encodeValue(lat - prevLat, result);
+            encodeValue(lng - prevLng, result);
+            prevLat = lat;
+            prevLng = lng;
+        }
+
+        return result.toString();
+    }
+
+    private static void encodeValue(long value, StringBuilder out) {
+        long shifted = value << 1;
+        if (value < 0) {
+            shifted = ~shifted;
+        }
+        while (shifted >= 0x20) {
+            out.append((char) ((0x20 | (shifted & 0x1f)) + 63));
+            shifted >>= 5;
+        }
+        out.append((char) (shifted + 63));
+    }
 }

@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,6 +14,17 @@ import java.util.UUID;
 public interface BookingRepository extends JpaRepository<Booking, UUID> {
 
     List<Booking> findByRide_RideId(UUID rideId);
+
+    /** Devtools only: every booking on any of these rides, for {@code reset()} to enumerate before deleting. */
+    List<Booking> findByRide_RideIdIn(Collection<UUID> rideIds);
+
+    /**
+     * Devtools only: bulk cleanup for {@code reset()} — deletes every booking on any of these
+     * rides. {@code clearAutomatically = true}: see {@code VehicleRepository#deleteByOwnerIdIn}.
+     */
+    @Modifying(clearAutomatically = true)
+    @Query("DELETE FROM Booking b WHERE b.ride.rideId IN :rideIds")
+    int deleteByRide_RideIdIn(@Param("rideIds") Collection<UUID> rideIds);
 
     List<Booking> findByRide_RideIdAndStatus(UUID rideId, BookingStatus status);
 

@@ -51,6 +51,9 @@ public class SecurityConfig {
                 .requestMatchers("/api/auth/**").permitAll()        // Login & Signup: open
                 .requestMatchers("/api/users/test").permitAll()     // Legacy test endpoint: open
                 .requestMatchers("/error").permitAll()              // Allow Spring Boot error handling (prevents 403 on 400 errors)
+                // Developer tool: only reachable at all when linkride.devtools.enabled=true
+                // registers the controller (see devtools package) -- otherwise this route 404s.
+                .requestMatchers("/api/devtools/**").permitAll()
                 .anyRequest().authenticated()                       // Everything else: requires JWT
             )
 
