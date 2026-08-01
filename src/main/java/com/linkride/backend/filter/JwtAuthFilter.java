@@ -1,6 +1,8 @@
 package com.linkride.backend.filter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkride.backend.config.JwtService;
+import com.linkride.backend.dto.ErrorResponse;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -9,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,7 +37,11 @@ import java.util.Collections;
  * </ol>
  *
  * <p>If the token is absent, malformed, expired, or has a bad signature, the filter
- * sends a {@code 401 Unauthorized} JSON response and short-circuits the chain.</p>
+ * sends a {@code 401 Unauthorized} response using the same {@link ErrorResponse} envelope as
+ * every other API error (Phase 5 §10 — see backend/docs/phase-5-platform-hardening.md), so a
+ * client can branch on {@code code} the same way whether the failure came from a controller or
+ * from auth. {@link CorrelationIdFilter} runs before this one, so the correlation ID is already
+ * in MDC and gets included here too.</p>
  */
 @Slf4j
 @Component
@@ -42,6 +49,7 @@ import java.util.Collections;
 public class JwtAuthFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
+    private final ObjectMapper objectMapper;
 
     @Override
     protected void doFilterInternal(
@@ -81,9 +89,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         } catch (JwtException ex) {
             log.warn("JWT validation failed for request [{}]: {}", request.getRequestURI(), ex.getMessage());
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\": \"Invalid or expired token\"}");
+            ErrorResponseWriter.write(response, objectMapper, HttpStatus.UNAUTHORIZED.value(),
+                    "UNAUTHENTICATED", "Invalid or expired token", request);
         }
     }
 }

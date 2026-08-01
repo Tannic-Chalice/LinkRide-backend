@@ -22,7 +22,7 @@ import java.util.UUID;
  * the JWT.</p>
  */
 @RestController
-@RequestMapping("/api/rides/{rideId}")
+@RequestMapping("/api/v1/rides/{rideId}")
 @RequiredArgsConstructor
 public class BoardingStatusController {
 

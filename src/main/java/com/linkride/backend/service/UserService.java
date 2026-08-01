@@ -147,23 +147,34 @@ public class UserService {
         try {
             response = restTemplate.postForEntity(url, entity, JsonNode.class);
         } catch (Exception e) {
-            throw new RuntimeException("Invalid email or password");
+            // Client-fault: wrong credentials (or Supabase rejected the request) -- IllegalArgumentException
+            // maps to 400 VALIDATION_ERROR via GlobalExceptionHandler, matching this method's existing
+            // contract (Phase 5 §10 AuthController migration -- see backend/docs/phase-5-platform-hardening.md).
+            throw new IllegalArgumentException("Invalid email or password");
         }
-        
+
         JsonNode responseBody = response.getBody();
         if (responseBody == null || !responseBody.has("access_token")) {
-             throw new RuntimeException("Unexpected response from Supabase login");
+             throw new IllegalArgumentException("Unexpected response from Supabase login");
         }
-        
+
         String accessToken = responseBody.get("access_token").asText();
         String refreshToken = responseBody.get("refresh_token").asText();
         Integer expiresIn = responseBody.get("expires_in").asInt();
-        
+
         JsonNode userNode = responseBody.get("user");
         String supabaseUserId = userNode.get("id").asText();
-        
-        User user = getUserById(UUID.fromString(supabaseUserId));
-        
+
+        User user;
+        try {
+            // getUserById throws a plain RuntimeException (500-mapped) for other callers -- login
+            // specifically treats "no local profile" as this request's fault (400), so it's translated
+            // here rather than changing getUserById's own exception type for every caller.
+            user = getUserById(UUID.fromString(supabaseUserId));
+        } catch (RuntimeException e) {
+            throw new IllegalArgumentException(e.getMessage());
+        }
+
         return new AuthResponse(user, accessToken, refreshToken, expiresIn);
     }
 }

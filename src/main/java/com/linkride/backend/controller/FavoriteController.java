@@ -1,6 +1,5 @@
 package com.linkride.backend.controller;
 
-import com.linkride.backend.dto.ErrorResponse;
 import com.linkride.backend.dto.favorite.FavoriteReorderItem;
 import com.linkride.backend.dto.favorite.FavoriteRequest;
 import com.linkride.backend.dto.favorite.FavoriteResponse;
@@ -32,7 +31,7 @@ import java.util.UUID;
  * can only modify their own data.</p>
  */
 @RestController
-@RequestMapping("/api/favorites")
+@RequestMapping("/api/v1/favorites")
 @RequiredArgsConstructor
 public class FavoriteController {
 
@@ -48,19 +47,13 @@ public class FavoriteController {
      * violations (cap reached, duplicate HOME/WORK type).</p>
      */
     @PostMapping
-    public ResponseEntity<?> addFavorite(
+    public ResponseEntity<FavoriteResponse> addFavorite(
             @Valid @RequestBody FavoriteRequest request,
             Authentication authentication) {
 
-        try {
-            UUID userId = UUID.fromString(authentication.getName());
-            FavoriteResponse response = favoriteService.addFavorite(userId, request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest()
-                .body(new ErrorResponse("BUSINESS_RULE_VIOLATION", e.getMessage()));
-        }
+        UUID userId = UUID.fromString(authentication.getName());
+        FavoriteResponse response = favoriteService.addFavorite(userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     // ── PUT /api/favorites/{favoriteId} ─────────────────────────────────────
@@ -75,23 +68,14 @@ public class FavoriteController {
      * not belong to the authenticated user.</p>
      */
     @PutMapping("/{favoriteId}")
-    public ResponseEntity<?> updateFavorite(
+    public ResponseEntity<FavoriteResponse> updateFavorite(
             @PathVariable UUID favoriteId,
             @Valid @RequestBody FavoriteRequest request,
             Authentication authentication) {
 
-        try {
-            UUID userId = UUID.fromString(authentication.getName());
-            FavoriteResponse response = favoriteService.updateFavorite(userId, favoriteId, request);
-            return ResponseEntity.ok(response);
-
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest()
-                .body(new ErrorResponse("BUSINESS_RULE_VIOLATION", e.getMessage()));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(new ErrorResponse("FAVORITE_NOT_FOUND", e.getMessage()));
-        }
+        UUID userId = UUID.fromString(authentication.getName());
+        FavoriteResponse response = favoriteService.updateFavorite(userId, favoriteId, request);
+        return ResponseEntity.ok(response);
     }
 
     // ── DELETE /api/favorites/{favoriteId} ──────────────────────────────────
@@ -104,19 +88,13 @@ public class FavoriteController {
      * not belong to the authenticated user.</p>
      */
     @DeleteMapping("/{favoriteId}")
-    public ResponseEntity<?> deleteFavorite(
+    public ResponseEntity<Void> deleteFavorite(
             @PathVariable UUID favoriteId,
             Authentication authentication) {
 
-        try {
-            UUID userId = UUID.fromString(authentication.getName());
-            favoriteService.deleteFavorite(userId, favoriteId);
-            return ResponseEntity.noContent().build();
-
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(new ErrorResponse("FAVORITE_NOT_FOUND", e.getMessage()));
-        }
+        UUID userId = UUID.fromString(authentication.getName());
+        favoriteService.deleteFavorite(userId, favoriteId);
+        return ResponseEntity.noContent().build();
     }
 
     // ── PATCH /api/favorites/reorder ─────────────────────────────────────────
@@ -136,21 +114,12 @@ public class FavoriteController {
      * new {@code displayOrder}.</p>
      */
     @PatchMapping("/reorder")
-    public ResponseEntity<?> reorderFavorites(
+    public ResponseEntity<List<FavoriteResponse>> reorderFavorites(
             @Valid @RequestBody List<FavoriteReorderItem> items,
             Authentication authentication) {
 
-        try {
-            UUID userId = UUID.fromString(authentication.getName());
-            List<FavoriteResponse> reordered = favoriteService.reorderFavorites(userId, items);
-            return ResponseEntity.ok(reordered);
-
-        } catch (IllegalStateException e) {
-            return ResponseEntity.badRequest()
-                .body(new ErrorResponse("INVALID_REORDER", e.getMessage()));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(new ErrorResponse("FAVORITE_NOT_FOUND", e.getMessage()));
-        }
+        UUID userId = UUID.fromString(authentication.getName());
+        List<FavoriteResponse> reordered = favoriteService.reorderFavorites(userId, items);
+        return ResponseEntity.ok(reordered);
     }
 }

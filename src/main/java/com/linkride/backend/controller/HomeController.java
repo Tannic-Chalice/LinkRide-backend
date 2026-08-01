@@ -1,6 +1,5 @@
 package com.linkride.backend.controller;
 
-import com.linkride.backend.dto.ErrorResponse;
 import com.linkride.backend.dto.home.HomeResponse;
 import com.linkride.backend.service.HomeService;
 import lombok.RequiredArgsConstructor;
@@ -33,30 +32,21 @@ import java.util.UUID;
  * {@link com.linkride.backend.config.SecurityConfig} — no additional annotation needed.</p>
  */
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/v1")
 @RequiredArgsConstructor
 public class HomeController {
 
     private final HomeService homeService;
 
     @GetMapping("/home")
-    public ResponseEntity<?> getHome(
+    public ResponseEntity<HomeResponse> getHome(
             @RequestParam(value = "lat")                          Double latitude,
             @RequestParam(value = "lng")                          Double longitude,
             @RequestParam(value = "locationName", required = false) String locationName,
             Authentication authentication) {
 
-        try {
-            UUID userId = UUID.fromString(authentication.getName());
-            HomeResponse response = homeService.buildHomeResponse(userId, latitude, longitude, locationName);
-            return ResponseEntity.ok(response);
-
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest()
-                .body(new ErrorResponse("INVALID_REQUEST", e.getMessage()));
-        } catch (RuntimeException e) {
-            return ResponseEntity.status(404)
-                .body(new ErrorResponse("USER_NOT_FOUND", e.getMessage()));
-        }
+        UUID userId = UUID.fromString(authentication.getName());
+        HomeResponse response = homeService.buildHomeResponse(userId, latitude, longitude, locationName);
+        return ResponseEntity.ok(response);
     }
 }

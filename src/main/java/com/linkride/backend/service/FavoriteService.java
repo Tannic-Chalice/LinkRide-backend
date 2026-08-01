@@ -6,6 +6,8 @@ import com.linkride.backend.dto.favorite.FavoriteResponse;
 import com.linkride.backend.entity.Favorite;
 import com.linkride.backend.entity.User;
 import com.linkride.backend.enums.FavoriteType;
+import com.linkride.backend.exception.BusinessRuleViolationException;
+import com.linkride.backend.exception.ResourceNotFoundException;
 import com.linkride.backend.repository.FavoriteRepository;
 import com.linkride.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -51,26 +53,26 @@ public class FavoriteService {
      * <p>{@code displayOrder} is auto-assigned to {@code (currentMax + 1)} so
      * the new favourite always appears at the end of the user's list.</p>
      *
-     * @throws IllegalStateException if the user has reached the max cap or already
-     *                               has a HOME/WORK favourite of the requested type
-     * @throws RuntimeException      if the user is not found in the local DB
+     * @throws BusinessRuleViolationException if the user has reached the max cap or already
+     *                                         has a HOME/WORK favourite of the requested type
+     * @throws ResourceNotFoundException       if the user is not found in the local DB
      */
     @Transactional
     public FavoriteResponse addFavorite(UUID userId, FavoriteRequest request) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "User not found"));
 
         // Rule 1: enforce total cap
         long count = favoriteRepository.countByUser_Id(userId);
         if (count >= MAX_FAVORITES) {
-            throw new IllegalStateException(
+            throw new BusinessRuleViolationException("BUSINESS_RULE_VIOLATION",
                 "Maximum of " + MAX_FAVORITES + " favorites allowed. Please remove one first.");
         }
 
         // Rule 2: enforce singleton HOME / WORK types
         if (request.getType() == FavoriteType.HOME || request.getType() == FavoriteType.WORK) {
             if (favoriteRepository.existsByUser_IdAndType(userId, request.getType())) {
-                throw new IllegalStateException(
+                throw new BusinessRuleViolationException("BUSINESS_RULE_VIOLATION",
                     "A " + request.getType().name() + " favorite already exists. " +
                     "Update or delete it before adding a new one.");
             }
@@ -93,19 +95,19 @@ public class FavoriteService {
      * <p>{@code displayOrder} is intentionally NOT updated here — use
      * {@code PATCH /api/favorites/reorder} to change list order.</p>
      *
-     * @throws IllegalStateException if changing type would create a duplicate HOME/WORK
-     * @throws RuntimeException      if the favourite is not found or not owned by the user
+     * @throws BusinessRuleViolationException if changing type would create a duplicate HOME/WORK
+     * @throws ResourceNotFoundException      if the favourite is not found or not owned by the user
      */
     @Transactional
     public FavoriteResponse updateFavorite(UUID userId, UUID favoriteId, FavoriteRequest request) {
         Favorite favorite = favoriteRepository.findByFavoriteIdAndUser_Id(favoriteId, userId)
-            .orElseThrow(() -> new RuntimeException("Favorite not found or access denied"));
+            .orElseThrow(() -> new ResourceNotFoundException("FAVORITE_NOT_FOUND", "Favorite not found or access denied"));
 
         // If the type is changing to HOME/WORK, ensure no duplicate exists (excluding self)
         if ((request.getType() == FavoriteType.HOME || request.getType() == FavoriteType.WORK)
                 && request.getType() != favorite.getType()) {
             if (favoriteRepository.existsByUser_IdAndType(userId, request.getType())) {
-                throw new IllegalStateException(
+                throw new BusinessRuleViolationException("BUSINESS_RULE_VIOLATION",
                     "A " + request.getType().name() + " favorite already exists.");
             }
         }
@@ -125,12 +127,12 @@ public class FavoriteService {
      * sequence after deletion, it should call {@code PATCH /api/favorites/reorder}
      * with the remaining items renumbered.</p>
      *
-     * @throws RuntimeException if the favourite is not found or not owned by the user
+     * @throws ResourceNotFoundException if the favourite is not found or not owned by the user
      */
     @Transactional
     public void deleteFavorite(UUID userId, UUID favoriteId) {
         Favorite favorite = favoriteRepository.findByFavoriteIdAndUser_Id(favoriteId, userId)
-            .orElseThrow(() -> new RuntimeException("Favorite not found or access denied"));
+            .orElseThrow(() -> new ResourceNotFoundException("FAVORITE_NOT_FOUND", "Favorite not found or access denied"));
         favoriteRepository.delete(favorite);
     }
 
@@ -150,8 +152,8 @@ public class FavoriteService {
      * </ol>
      *
      * @return the full sorted list of favourites after the reorder is applied
-     * @throws IllegalStateException if the list size is wrong or orders are non-contiguous
-     * @throws RuntimeException      if any {@code favoriteId} is not owned by the user
+     * @throws BusinessRuleViolationException if the list size is wrong or orders are non-contiguous
+     * @throws ResourceNotFoundException      if any {@code favoriteId} is not owned by the user
      */
     @Transactional
     public List<FavoriteResponse> reorderFavorites(UUID userId, List<FavoriteReorderItem> items) {
@@ -160,7 +162,7 @@ public class FavoriteService {
 
         // Rule 2: submitted list must exactly match the user's current favourites
         if (items.size() != existingFavorites.size()) {
-            throw new IllegalStateException(
+            throw new BusinessRuleViolationException("INVALID_REORDER",
                 "Reorder list must include all " + existingFavorites.size() + " favorites.");
         }
 
@@ -171,7 +173,7 @@ public class FavoriteService {
             .toList();
         for (int i = 0; i < submittedOrders.size(); i++) {
             if (submittedOrders.get(i) != i + 1) {
-                throw new IllegalStateException(
+                throw new BusinessRuleViolationException("INVALID_REORDER",
                     "displayOrder values must be a contiguous sequence starting at 1.");
             }
         }
@@ -184,7 +186,7 @@ public class FavoriteService {
             Favorite favorite = favoriteMap.get(item.getFavoriteId());
             if (favorite == null) {
                 // Rule 1: favoriteId does not belong to this user
-                throw new RuntimeException(
+                throw new ResourceNotFoundException("FAVORITE_NOT_FOUND",
                     "Favorite " + item.getFavoriteId() + " not found or access denied");
             }
             favorite.setDisplayOrder(item.getDisplayOrder());

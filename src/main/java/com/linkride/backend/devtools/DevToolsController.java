@@ -18,7 +18,7 @@ import java.util.Map;
  * backend/docs/api.md} for the endpoint contracts and a runbook.
  */
 @RestController
-@RequestMapping("/api/devtools")
+@RequestMapping("/api/v1/devtools")
 @RequiredArgsConstructor
 @ConditionalOnProperty(prefix = "linkride.devtools", name = "enabled", havingValue = "true")
 public class DevToolsController {

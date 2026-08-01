@@ -5,6 +5,7 @@ import com.linkride.backend.dto.home.*;
 import com.linkride.backend.entity.Favorite;
 import com.linkride.backend.entity.User;
 import com.linkride.backend.enums.RideCategoryId;
+import com.linkride.backend.exception.ResourceNotFoundException;
 import com.linkride.backend.repository.FavoriteRepository;
 import com.linkride.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -69,7 +70,7 @@ public class HomeService {
      * @param longitude    device longitude supplied by the client
      * @param locationName optional reverse-geocoded place name supplied by the client
      * @return assembled {@link HomeResponse}
-     * @throws RuntimeException if the user is not found in the local DB
+     * @throws ResourceNotFoundException if the user is not found in the local DB
      */
     @Transactional(readOnly = true)
     public HomeResponse buildHomeResponse(UUID userId,
@@ -77,7 +78,7 @@ public class HomeService {
                                           Double longitude,
                                           String locationName) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "User not found"));
 
         List<FavoriteResponse> favorites = favoriteRepository
             .findByUser_IdOrderByDisplayOrderAsc(userId)

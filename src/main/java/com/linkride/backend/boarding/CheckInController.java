@@ -23,7 +23,7 @@ import java.util.UUID;
  * the token itself plus the authenticated passenger.</p>
  */
 @RestController
-@RequestMapping("/api/boarding")
+@RequestMapping("/api/v1/boarding")
 @RequiredArgsConstructor
 public class CheckInController {
 

@@ -25,7 +25,7 @@ import java.util.UUID;
  * from the JWT — never from the request body.</p>
  */
 @RestController
-@RequestMapping("/api/rides")
+@RequestMapping("/api/v1/rides")
 @RequiredArgsConstructor
 public class TripSearchController {
 

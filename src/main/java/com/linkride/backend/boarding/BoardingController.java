@@ -26,7 +26,7 @@ import java.util.UUID;
  * the JWT — never from the request body.</p>
  */
 @RestController
-@RequestMapping("/api/bookings/{bookingId}/boarding")
+@RequestMapping("/api/v1/bookings/{bookingId}/boarding")
 @RequiredArgsConstructor
 public class BoardingController {
 
