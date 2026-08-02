@@ -16,6 +16,7 @@ import com.linkride.backend.discovery.TripSearchService;
 import com.linkride.backend.entity.User;
 import com.linkride.backend.entity.Vehicle;
 import com.linkride.backend.location.GeoPointDto;
+import com.linkride.backend.notification.NotificationRepository;
 import com.linkride.backend.repository.UserRepository;
 import com.linkride.backend.repository.VehicleRepository;
 import com.linkride.backend.ride.Ride;
@@ -100,6 +101,7 @@ public class DemoSeedService {
     private final BookingRepository bookingRepository;
     private final BoardingTokenRepository boardingTokenRepository;
     private final BoardingVerificationRepository boardingVerificationRepository;
+    private final NotificationRepository notificationRepository;
     private final EntityManager entityManager;
 
     private record SeededDriver(UUID id, SeedGeoData.Corridor corridor, int seatCapacity) {
@@ -589,5 +591,25 @@ public class DemoSeedService {
         status.put("seededRides", rideIds.size());
         status.put("seededBookings", bookingCount);
         return status;
+    }
+
+    /**
+     * The most recent notifications across every recipient, for {@code GET
+     * /api/v1/devtools/push-log} — end-to-end verification of the booking/ride/boarding ->
+     * notification pipeline (POST a booking, accept it, then call this) without a mobile client
+     * or real FCM credentials. One {@code userRepository.findById} per row to resolve a readable
+     * name is fine at this scale (top 50, devtools only) — not worth a batch lookup.
+     */
+    public List<PushLogEntry> pushLog() {
+        return notificationRepository.findTop50ByOrderByCreatedAtDesc().stream()
+                .map(n -> PushLogEntry.builder()
+                        .recipient(userRepository.findById(n.getRecipientUserId())
+                                .map(User::getFullName)
+                                .orElse(n.getRecipientUserId().toString()))
+                        .type(n.getType())
+                        .title(n.getTitle())
+                        .body(n.getBody())
+                        .build())
+                .toList();
     }
 }

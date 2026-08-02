@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -37,6 +38,10 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
     long countByRecipientUserIdAndStatusAndCategory(UUID recipientUserId, NotificationStatus status, NotificationCategory category);
 
     long countByRecipientUserIdAndStatus(UUID recipientUserId, NotificationStatus status);
+
+    /** Devtools only: a recent, all-recipients feed for {@code GET /api/v1/devtools/push-log} — manual
+     * end-to-end verification of the event -> notification pipeline without a mobile client. */
+    List<Notification> findTop50ByOrderByCreatedAtDesc();
 
     Optional<Notification> findByNotificationIdAndRecipientUserId(UUID notificationId, UUID recipientUserId);
 

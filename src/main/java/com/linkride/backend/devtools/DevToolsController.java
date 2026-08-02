@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -48,5 +49,15 @@ public class DevToolsController {
     @GetMapping("/seed/status")
     public ResponseEntity<Map<String, Object>> status() {
         return ResponseEntity.ok(demoSeedService.status());
+    }
+
+    /**
+     * The last 50 notifications across every recipient, newest first — e.g. POST a booking,
+     * accept it, then call this to see the resulting {@code BOOKING_ACCEPTED} notification without
+     * a mobile client or real FCM credentials (Phase 6 — see backend/docs/phase-6-notifications.md).
+     */
+    @GetMapping("/push-log")
+    public ResponseEntity<List<PushLogEntry>> pushLog() {
+        return ResponseEntity.ok(demoSeedService.pushLog());
     }
 }
