@@ -2,6 +2,7 @@ package com.linkride.backend.tracking;
 
 import org.springframework.stereotype.Service;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
@@ -21,6 +22,16 @@ import java.util.stream.Collectors;
 public class InMemoryLiveRideStateStore implements LiveRideStateStore {
 
     private final ConcurrentHashMap<UUID, LiveRideState> states = new ConcurrentHashMap<>();
+    private final Clock clock;
+
+    public InMemoryLiveRideStateStore() {
+        this(Clock.systemUTC());
+    }
+
+    /** Package-visible so {@code StaleLiveStateReaper}'s own test can inject a fake clock (§15). */
+    InMemoryLiveRideStateStore(Clock clock) {
+        this.clock = clock;
+    }
 
     @Override
     public Optional<LiveRideState> get(UUID rideId) {
@@ -39,7 +50,7 @@ public class InMemoryLiveRideStateStore implements LiveRideStateStore {
 
     @Override
     public Collection<UUID> staleRideIds(Duration idleThreshold) {
-        Instant cutoff = Instant.now().minus(idleThreshold);
+        Instant cutoff = clock.instant().minus(idleThreshold);
         return states.entrySet().stream()
                 .filter(entry -> entry.getValue().getLastUpdatedAt().isBefore(cutoff))
                 .map(Map.Entry::getKey)

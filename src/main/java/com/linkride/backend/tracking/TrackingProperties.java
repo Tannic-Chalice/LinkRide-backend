@@ -39,4 +39,12 @@ public class TrackingProperties {
 
     /** §14 — idle duration after which StaleLiveStateReaper evicts a ride's LiveRideState. */
     private Duration staleIdleThreshold = Duration.ofHours(4);
+
+    /**
+     * §14 — how often StaleLiveStateReaper sweeps for idle rides. Mirrored as the literal
+     * default on {@code @Scheduled}'s {@code fixedDelayString} placeholder (annotation values
+     * must be compile-time constants, so this field can't be referenced directly there) — keep
+     * both in sync if this default ever changes.
+     */
+    private long reapIntervalMillis = 900_000; // 15 minutes
 }

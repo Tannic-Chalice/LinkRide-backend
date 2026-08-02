@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskDecorator;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.Map;
@@ -17,9 +18,15 @@ import java.util.concurrent.Executor;
  * MdcPropagatingTaskDecorator} carries {@link CorrelationIdFilter}'s correlation ID onto the
  * async thread, exactly the propagation Phase 5 §3 flagged as "relevant the moment Notifications
  * lands."
+ *
+ * <p>Also enables {@code @Scheduled} for {@code StaleLiveStateReaper} (Phase 7 §14 — see
+ * backend/docs/phase-7-live-trip-management.md) — the first scheduled task in this codebase,
+ * grouped here rather than a dedicated config class for the same "one small annotation, no new
+ * file" reasoning {@code @EnableAsync} already got.</p>
  */
 @Configuration
 @EnableAsync
+@EnableScheduling
 public class AsyncConfig {
 
     @Bean("notificationExecutor")

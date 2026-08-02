@@ -15,6 +15,7 @@ import com.linkride.backend.route.RouteGenerationState;
 import com.linkride.backend.route.RouteProvider;
 import com.linkride.backend.route.RouteResult;
 import com.linkride.backend.route.geometry.RouteGeometryBuilder;
+import com.linkride.backend.tracking.LiveRideStateStore;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
@@ -38,6 +39,7 @@ public class RideService {
     private final RouteGeometryBuilder routeGeometryBuilder;
     private final BookingRepository bookingRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final LiveRideStateStore liveRideStateStore;
 
     /**
      * Creates a ride for the authenticated driver.
@@ -165,6 +167,10 @@ public class RideService {
                     "BOOKING", booking.getBookingId()));
         }
 
+        // A no-op if this ride was never tracked (Phase 7 §14 — live tracking only starts once
+        // the ride is IN_PROGRESS, and a SCHEDULED ride can be cancelled before it ever gets there).
+        liveRideStateStore.remove(rideId);
+
         return RideResponse.from(ride, rideWaypointRepository.findByRide_RideIdOrderBySequenceAsc(rideId));
     }
 
@@ -242,6 +248,9 @@ public class RideService {
                     "Your ride to " + ride.getDestination().getName() + " has been completed.",
                     "BOOKING", booking.getBookingId()));
         }
+
+        // Live tracking is over now that the ride has reached a terminal state (Phase 7 §14).
+        liveRideStateStore.remove(rideId);
 
         return RideResponse.from(ride, rideWaypointRepository.findByRide_RideIdOrderBySequenceAsc(rideId));
     }
