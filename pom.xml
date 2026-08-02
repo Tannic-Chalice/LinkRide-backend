@@ -65,6 +65,13 @@
 			<artifactId>spring-boot-starter-web</artifactId>
 		</dependency>
 
+		<!-- STOMP over WebSocket: live-tracking unicast push (Phase 7 §11,
+		     backend/docs/phase-7-live-trip-management.md, ADR-1). -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-websocket</artifactId>
+		</dependency>
+
 		<!-- Health/info endpoints (Phase 5 §8) -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>

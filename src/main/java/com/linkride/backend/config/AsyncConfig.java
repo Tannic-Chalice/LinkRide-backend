@@ -35,6 +35,26 @@ public class AsyncConfig {
     }
 
     /**
+     * Backs {@code LiveTrackingBroadcaster.pushToUser} (Phase 7 §11.3/ADR-9 — see
+     * backend/docs/phase-7-live-trip-management.md) — a slow or unreachable passenger connection
+     * must never delay or fail the driver's own {@code POST /location} response, the same
+     * "additive, never disruptive" posture {@code notificationExecutor} already holds for
+     * notification delivery. Separate pool from {@code notificationExecutor} so a backlog in one
+     * delivery path can't starve the other.
+     */
+    @Bean("trackingBroadcastExecutor")
+    public Executor trackingBroadcastExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("tracking-broadcast-");
+        executor.setTaskDecorator(new MdcPropagatingTaskDecorator());
+        executor.initialize();
+        return executor;
+    }
+
+    /**
      * Copies the submitting (request) thread's MDC context map onto the pool thread that actually
      * runs the task, and clears it afterward — pool threads are reused across many async tasks,
      * so leaving stale MDC behind would leak one request's correlation ID onto another's log
