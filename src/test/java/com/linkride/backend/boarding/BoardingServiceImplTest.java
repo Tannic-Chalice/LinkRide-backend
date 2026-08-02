@@ -15,6 +15,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.assertj.core.groups.Tuple;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.server.ResponseStatusException;
@@ -48,6 +49,8 @@ class BoardingServiceImplTest {
     private RideRepository rideRepository;
     @Mock
     private OtpNotificationService otpNotificationService;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private BoardingServiceImpl boardingService;
 
@@ -64,7 +67,7 @@ class BoardingServiceImplTest {
         BoardingProperties boardingProperties = new BoardingProperties();
         boardingService = new BoardingServiceImpl(
                 boardingTokenRepository, boardingVerificationRepository, bookingRepository, rideRepository,
-                boardingProperties, otpNotificationService);
+                boardingProperties, otpNotificationService, eventPublisher);
 
         driverId = UUID.randomUUID();
         passengerId = UUID.randomUUID();
@@ -276,6 +279,12 @@ class BoardingServiceImplTest {
         assertThat(verification.getBooking()).isEqualTo(booking);
         assertThat(verification.getCheckedInAt()).isNotNull();
         assertThat(verification.getCheckedInVia()).isEqualTo(CheckedInVia.QR);
+
+        ArgumentCaptor<com.linkride.backend.notification.NotificationEvent> eventCaptor =
+                ArgumentCaptor.forClass(com.linkride.backend.notification.NotificationEvent.class);
+        verify(eventPublisher).publishEvent(eventCaptor.capture());
+        assertThat(eventCaptor.getValue().recipientUserId()).isEqualTo(driverId);
+        assertThat(eventCaptor.getValue().type()).isEqualTo("PASSENGER_CHECKED_IN");
     }
 
     @Test

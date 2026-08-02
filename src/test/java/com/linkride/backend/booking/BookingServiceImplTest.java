@@ -13,6 +13,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.server.ResponseStatusException;
@@ -40,6 +41,8 @@ class BookingServiceImplTest {
     private RideRepository rideRepository;
     @Mock
     private UserRepository userRepository;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private BookingServiceImpl bookingService;
 
@@ -52,7 +55,7 @@ class BookingServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        bookingService = new BookingServiceImpl(bookingRepository, rideRepository, userRepository);
+        bookingService = new BookingServiceImpl(bookingRepository, rideRepository, userRepository, eventPublisher);
 
         driverId = UUID.randomUUID();
         passengerId = UUID.randomUUID();
@@ -122,6 +125,19 @@ class BookingServiceImplTest {
         assertThat(response.getSeatsRequested()).isEqualTo(2);
         assertThat(response.getRideId()).isEqualTo(rideId);
         assertThat(response.getPassengerId()).isEqualTo(passengerId);
+    }
+
+    @Test
+    void requestBooking_happyPath_publishesBookingRequestedEventToDriver() {
+        bookingService.requestBooking(passengerId, rideId, validRequest());
+
+        ArgumentCaptor<com.linkride.backend.notification.NotificationEvent> captor =
+                ArgumentCaptor.forClass(com.linkride.backend.notification.NotificationEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+
+        assertThat(captor.getValue().recipientUserId()).isEqualTo(driverId);
+        assertThat(captor.getValue().type()).isEqualTo("BOOKING_REQUESTED");
+        assertThat(captor.getValue().category()).isEqualTo(com.linkride.backend.notification.NotificationCategory.BOOKING);
     }
 
     @Test
@@ -311,6 +327,12 @@ class BookingServiceImplTest {
         assertThat(response.getStatus()).isEqualTo(BookingStatus.ACCEPTED);
         assertThat(booking.getDecidedAt()).isNotNull();
         verify(rideRepository).reserveSeats(rideId, booking.getSeatsRequested());
+
+        ArgumentCaptor<com.linkride.backend.notification.NotificationEvent> captor =
+                ArgumentCaptor.forClass(com.linkride.backend.notification.NotificationEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().recipientUserId()).isEqualTo(passengerId);
+        assertThat(captor.getValue().type()).isEqualTo("BOOKING_ACCEPTED");
     }
 
     @Test
@@ -399,6 +421,12 @@ class BookingServiceImplTest {
         assertThat(response.getStatus()).isEqualTo(BookingStatus.REJECTED);
         assertThat(booking.getDecidedAt()).isNotNull();
         verify(rideRepository, never()).reserveSeats(any(UUID.class), anyInt());
+
+        ArgumentCaptor<com.linkride.backend.notification.NotificationEvent> captor =
+                ArgumentCaptor.forClass(com.linkride.backend.notification.NotificationEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().recipientUserId()).isEqualTo(passengerId);
+        assertThat(captor.getValue().type()).isEqualTo("BOOKING_REJECTED");
     }
 
     @Test
@@ -445,6 +473,13 @@ class BookingServiceImplTest {
         assertThat(booking.getCancelledBy()).isEqualTo(CancelInitiator.PASSENGER);
         assertThat(booking.getCancelledAt()).isNotNull();
         verify(rideRepository, never()).releaseSeats(any(UUID.class), anyInt());
+
+        // Passenger cancelled -- the notification goes to the driver, not back to the passenger.
+        ArgumentCaptor<com.linkride.backend.notification.NotificationEvent> captor =
+                ArgumentCaptor.forClass(com.linkride.backend.notification.NotificationEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().recipientUserId()).isEqualTo(driverId);
+        assertThat(captor.getValue().type()).isEqualTo("BOOKING_CANCELLED");
     }
 
     @Test

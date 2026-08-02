@@ -1,11 +1,14 @@
 package com.linkride.backend.booking;
 
 import com.linkride.backend.entity.User;
+import com.linkride.backend.notification.NotificationCategory;
+import com.linkride.backend.notification.NotificationEvent;
 import com.linkride.backend.repository.UserRepository;
 import com.linkride.backend.ride.Ride;
 import com.linkride.backend.ride.RideRepository;
 import com.linkride.backend.ride.RideStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -27,6 +30,7 @@ public class BookingServiceImpl implements BookingService {
     private final BookingRepository bookingRepository;
     private final RideRepository rideRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Creates a PENDING booking request. Business rules enforced:
@@ -89,6 +93,12 @@ public class BookingServiceImpl implements BookingService {
         } catch (DataIntegrityViolationException e) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, DUPLICATE_ACTIVE_BOOKING_MESSAGE);
         }
+
+        eventPublisher.publishEvent(new NotificationEvent(
+                ride.getDriver().getId(), NotificationCategory.BOOKING, "BOOKING_REQUESTED",
+                "New booking request",
+                passenger.getFullName() + " requested to join your ride to " + ride.getDestination().getName() + ".",
+                "BOOKING", saved.getBookingId()));
 
         return BookingResponse.from(saved);
     }
@@ -194,6 +204,12 @@ public class BookingServiceImpl implements BookingService {
                     "This booking was already updated by another request");
         }
 
+        eventPublisher.publishEvent(new NotificationEvent(
+                booking.getPassenger().getId(), NotificationCategory.BOOKING, "BOOKING_ACCEPTED",
+                "Booking accepted",
+                "Your booking to " + ride.getDestination().getName() + " was accepted.",
+                "BOOKING", booking.getBookingId()));
+
         return BookingResponse.from(booking);
     }
 
@@ -224,6 +240,12 @@ public class BookingServiceImpl implements BookingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "This booking was already updated by another request");
         }
+
+        eventPublisher.publishEvent(new NotificationEvent(
+                booking.getPassenger().getId(), NotificationCategory.BOOKING, "BOOKING_REJECTED",
+                "Booking declined",
+                "Your booking request to " + booking.getRide().getDestination().getName() + " was declined.",
+                "BOOKING", booking.getBookingId()));
 
         return BookingResponse.from(booking);
     }
@@ -281,6 +303,14 @@ public class BookingServiceImpl implements BookingService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "This booking was already updated by another request");
         }
+
+        UUID notifyRecipient = isPassenger ? ride.getDriver().getId() : booking.getPassenger().getId();
+        String cancelledByName = isPassenger ? booking.getPassenger().getFullName() : ride.getDriver().getFullName();
+        eventPublisher.publishEvent(new NotificationEvent(
+                notifyRecipient, NotificationCategory.BOOKING, "BOOKING_CANCELLED",
+                "Booking cancelled",
+                cancelledByName + " cancelled the booking for the ride to " + ride.getDestination().getName() + ".",
+                "BOOKING", booking.getBookingId()));
 
         return BookingResponse.from(booking);
     }

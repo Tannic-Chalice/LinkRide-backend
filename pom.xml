@@ -177,6 +177,14 @@
 			<version>8.14.0</version>
 		</dependency>
 
+		<!-- Firebase Admin SDK: server-side push delivery for Phase 6 Notifications
+		     (backend/docs/phase-6-notifications.md §11). Not managed by the Spring Boot BOM. -->
+		<dependency>
+			<groupId>com.google.firebase</groupId>
+			<artifactId>firebase-admin</artifactId>
+			<version>9.10.0</version>
+		</dependency>
+
 	</dependencies>
 
 	<build>

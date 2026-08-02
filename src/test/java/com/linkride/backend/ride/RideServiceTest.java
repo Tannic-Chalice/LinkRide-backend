@@ -1,6 +1,8 @@
 package com.linkride.backend.ride;
 
+import com.linkride.backend.booking.Booking;
 import com.linkride.backend.booking.BookingRepository;
+import com.linkride.backend.booking.BookingStatus;
 import com.linkride.backend.entity.User;
 import com.linkride.backend.entity.Vehicle;
 import com.linkride.backend.location.GeoPoint;
@@ -21,6 +23,7 @@ import org.locationtech.jts.geom.PrecisionModel;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.OffsetDateTime;
@@ -51,6 +54,8 @@ class RideServiceTest {
     private RouteProvider routeProvider;
     @Mock
     private BookingRepository bookingRepository;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private RideService rideService;
 
@@ -64,7 +69,7 @@ class RideServiceTest {
     void setUp() {
         // Real builder: it's pure decode/annotate logic, no dependencies — mocking it would just add noise.
         rideService = new RideService(rideRepository, rideWaypointRepository, userRepository, vehicleRepository,
-                routeProvider, new RouteGeometryBuilder(), bookingRepository);
+                routeProvider, new RouteGeometryBuilder(), bookingRepository, eventPublisher);
 
         driverId = UUID.randomUUID();
         driver = new User();
@@ -306,6 +311,29 @@ class RideServiceTest {
         rideService.startRide(driverId, rideId);
 
         verify(bookingRepository).markNoShowAllAcceptedBookingsForRide(rideId);
+    }
+
+    @Test
+    void startRide_happyPath_publishesRideStartedEventForCheckedInPassengers() {
+        when(rideRepository.startIfScheduled(rideId)).thenReturn(1);
+
+        User passenger = new User();
+        passenger.setId(UUID.randomUUID());
+        Booking checkedIn = new Booking();
+        checkedIn.setBookingId(UUID.randomUUID());
+        checkedIn.setRide(ride);
+        checkedIn.setPassenger(passenger);
+        checkedIn.setStatus(BookingStatus.CHECKED_IN);
+        when(bookingRepository.findByRide_RideIdAndStatus(rideId, BookingStatus.CHECKED_IN))
+                .thenReturn(List.of(checkedIn));
+
+        rideService.startRide(driverId, rideId);
+
+        ArgumentCaptor<com.linkride.backend.notification.NotificationEvent> captor =
+                ArgumentCaptor.forClass(com.linkride.backend.notification.NotificationEvent.class);
+        verify(eventPublisher).publishEvent(captor.capture());
+        assertThat(captor.getValue().recipientUserId()).isEqualTo(passenger.getId());
+        assertThat(captor.getValue().type()).isEqualTo("RIDE_STARTED");
     }
 
     @Test

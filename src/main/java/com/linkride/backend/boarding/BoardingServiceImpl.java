@@ -4,10 +4,13 @@ import com.linkride.backend.booking.Booking;
 import com.linkride.backend.booking.BookingRepository;
 import com.linkride.backend.booking.BookingResponse;
 import com.linkride.backend.booking.BookingStatus;
+import com.linkride.backend.notification.NotificationCategory;
+import com.linkride.backend.notification.NotificationEvent;
 import com.linkride.backend.ride.Ride;
 import com.linkride.backend.ride.RideRepository;
 import com.linkride.backend.ride.RideStatus;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -39,6 +42,7 @@ public class BoardingServiceImpl implements BoardingService {
     private final RideRepository rideRepository;
     private final BoardingProperties boardingProperties;
     private final OtpNotificationService otpNotificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Reuses the active token if one exists and hasn't expired yet — driver taps on the same
@@ -293,6 +297,12 @@ public class BoardingServiceImpl implements BoardingService {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "This booking was already updated by another request");
         }
+
+        eventPublisher.publishEvent(new NotificationEvent(
+                booking.getRide().getDriver().getId(), NotificationCategory.BOARDING, "PASSENGER_CHECKED_IN",
+                "Passenger checked in",
+                booking.getPassenger().getFullName() + " has checked in.",
+                "BOOKING", booking.getBookingId()));
 
         OffsetDateTime checkedInAt = OffsetDateTime.now();
         verification.setCheckedInAt(checkedInAt);

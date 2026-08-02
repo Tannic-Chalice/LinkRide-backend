@@ -1,10 +1,14 @@
 package com.linkride.backend.ride;
 
+import com.linkride.backend.booking.Booking;
 import com.linkride.backend.booking.BookingRepository;
+import com.linkride.backend.booking.BookingStatus;
 import com.linkride.backend.entity.User;
 import com.linkride.backend.entity.Vehicle;
 import com.linkride.backend.location.GeoPointDto;
 import com.linkride.backend.location.GeoPoints;
+import com.linkride.backend.notification.NotificationCategory;
+import com.linkride.backend.notification.NotificationEvent;
 import com.linkride.backend.repository.UserRepository;
 import com.linkride.backend.repository.VehicleRepository;
 import com.linkride.backend.route.RouteGenerationState;
@@ -12,6 +16,7 @@ import com.linkride.backend.route.RouteProvider;
 import com.linkride.backend.route.RouteResult;
 import com.linkride.backend.route.geometry.RouteGeometryBuilder;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,6 +37,7 @@ public class RideService {
     private final RouteProvider routeProvider;
     private final RouteGeometryBuilder routeGeometryBuilder;
     private final BookingRepository bookingRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Creates a ride for the authenticated driver.
@@ -139,8 +145,25 @@ public class RideService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ride cannot be cancelled from its current state");
         }
 
+        // Snapshot before the bulk cascade below -- a bulk @Modifying update doesn't return the
+        // rows it touched, so the passengers to notify must be read first (Phase 6 — see
+        // backend/docs/phase-6-notifications.md §7).
+        List<Booking> affectedBookings = bookingRepository.findByRide_RideId(rideId).stream()
+                .filter(b -> b.getStatus() == BookingStatus.PENDING
+                        || b.getStatus() == BookingStatus.ACCEPTED
+                        || b.getStatus() == BookingStatus.CHECKED_IN)
+                .toList();
+
         ride.setStatus(RideStatus.CANCELLED);
         bookingRepository.cancelAllActiveBookingsForRide(rideId);
+
+        for (Booking booking : affectedBookings) {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    booking.getPassenger().getId(), NotificationCategory.RIDE, "RIDE_CANCELLED",
+                    "Ride cancelled",
+                    "Your ride to " + ride.getDestination().getName() + " was cancelled by the driver.",
+                    "BOOKING", booking.getBookingId()));
+        }
 
         return RideResponse.from(ride, rideWaypointRepository.findByRide_RideIdOrderBySequenceAsc(rideId));
     }
@@ -171,6 +194,18 @@ public class RideService {
         bookingRepository.expireAllPendingBookingsForRide(rideId);
         bookingRepository.markNoShowAllAcceptedBookingsForRide(rideId);
 
+        // Only CHECKED_IN survives this cascade (every ACCEPTED booking above just became
+        // NO_SHOW) -- those are the passengers actually still on the ride. EXPIRED/NO_SHOW get no
+        // notification in this phase (architecture doc §7, deliberate scope decision).
+        List<Booking> checkedInBookings = bookingRepository.findByRide_RideIdAndStatus(rideId, BookingStatus.CHECKED_IN);
+        for (Booking booking : checkedInBookings) {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    booking.getPassenger().getId(), NotificationCategory.RIDE, "RIDE_STARTED",
+                    "Ride started",
+                    "Your ride to " + ride.getDestination().getName() + " has started.",
+                    "BOOKING", booking.getBookingId()));
+        }
+
         return RideResponse.from(ride, rideWaypointRepository.findByRide_RideIdOrderBySequenceAsc(rideId));
     }
 
@@ -193,8 +228,20 @@ public class RideService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ride cannot be completed from its current state");
         }
 
+        // Snapshot before the bulk complete below -- these are exactly the rows it's about to
+        // change, and a bulk @Modifying update doesn't return them.
+        List<Booking> checkedInBookings = bookingRepository.findByRide_RideIdAndStatus(rideId, BookingStatus.CHECKED_IN);
+
         ride.setStatus(RideStatus.COMPLETED);
         bookingRepository.completeAllCheckedInBookingsForRide(rideId);
+
+        for (Booking booking : checkedInBookings) {
+            eventPublisher.publishEvent(new NotificationEvent(
+                    booking.getPassenger().getId(), NotificationCategory.RIDE, "RIDE_COMPLETED",
+                    "Ride completed",
+                    "Your ride to " + ride.getDestination().getName() + " has been completed.",
+                    "BOOKING", booking.getBookingId()));
+        }
 
         return RideResponse.from(ride, rideWaypointRepository.findByRide_RideIdOrderBySequenceAsc(rideId));
     }

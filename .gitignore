@@ -37,3 +37,4 @@ build/
 ### Project knowledge base (working notes, not shipped docs) ###
 /memory/
 /docs/
+serviceAccountKey.json
