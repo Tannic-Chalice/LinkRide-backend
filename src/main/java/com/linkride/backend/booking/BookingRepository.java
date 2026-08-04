@@ -126,4 +126,10 @@ public interface BookingRepository extends JpaRepository<Booking, UUID> {
                                 com.linkride.backend.booking.BookingStatus.CHECKED_IN)
             """)
     List<Booking> findBoardingCandidatesForRide(@Param("rideId") UUID rideId);
+
+    /**
+     * Live-tracking authorization check (Phase 7 §12) — is this caller a checked-in passenger on
+     * this ride, i.e. allowed to pull {@code GET /rides/{rideId}/tracking}.
+     */
+    boolean existsByRide_RideIdAndPassenger_IdAndStatus(UUID rideId, UUID passengerId, BookingStatus status);
 }

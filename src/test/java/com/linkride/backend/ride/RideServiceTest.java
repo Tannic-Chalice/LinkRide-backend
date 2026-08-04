@@ -14,6 +14,7 @@ import com.linkride.backend.route.RouteGenerationState;
 import com.linkride.backend.route.RouteProvider;
 import com.linkride.backend.route.RouteResult;
 import com.linkride.backend.route.geometry.RouteGeometryBuilder;
+import com.linkride.backend.tracking.LiveRideStateStore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -56,6 +57,8 @@ class RideServiceTest {
     private BookingRepository bookingRepository;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private LiveRideStateStore liveRideStateStore;
 
     private RideService rideService;
 
@@ -69,7 +72,7 @@ class RideServiceTest {
     void setUp() {
         // Real builder: it's pure decode/annotate logic, no dependencies — mocking it would just add noise.
         rideService = new RideService(rideRepository, rideWaypointRepository, userRepository, vehicleRepository,
-                routeProvider, new RouteGeometryBuilder(), bookingRepository, eventPublisher);
+                routeProvider, new RouteGeometryBuilder(), bookingRepository, eventPublisher, liveRideStateStore);
 
         driverId = UUID.randomUUID();
         driver = new User();
@@ -261,6 +264,15 @@ class RideServiceTest {
     }
 
     @Test
+    void cancelRide_happyPath_removesLiveRideState() {
+        when(rideRepository.cancelIfScheduled(rideId)).thenReturn(1);
+
+        rideService.cancelRide(driverId, rideId);
+
+        verify(liveRideStateStore).remove(rideId);
+    }
+
+    @Test
     void cancelRide_notTheDriver_throws403() {
         UUID strangerId = UUID.randomUUID();
 
@@ -367,6 +379,15 @@ class RideServiceTest {
 
         assertThat(response.getStatus()).isEqualTo(RideStatus.COMPLETED);
         verify(bookingRepository).completeAllCheckedInBookingsForRide(rideId);
+    }
+
+    @Test
+    void completeRide_happyPath_removesLiveRideState() {
+        when(rideRepository.completeIfInProgress(rideId)).thenReturn(1);
+
+        rideService.completeRide(driverId, rideId);
+
+        verify(liveRideStateStore).remove(rideId);
     }
 
     @Test

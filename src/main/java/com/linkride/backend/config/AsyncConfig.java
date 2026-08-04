@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.TaskDecorator;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.Map;
@@ -17,9 +18,15 @@ import java.util.concurrent.Executor;
  * MdcPropagatingTaskDecorator} carries {@link CorrelationIdFilter}'s correlation ID onto the
  * async thread, exactly the propagation Phase 5 §3 flagged as "relevant the moment Notifications
  * lands."
+ *
+ * <p>Also enables {@code @Scheduled} for {@code StaleLiveStateReaper} (Phase 7 §14 — see
+ * backend/docs/phase-7-live-trip-management.md) — the first scheduled task in this codebase,
+ * grouped here rather than a dedicated config class for the same "one small annotation, no new
+ * file" reasoning {@code @EnableAsync} already got.</p>
  */
 @Configuration
 @EnableAsync
+@EnableScheduling
 public class AsyncConfig {
 
     @Bean("notificationExecutor")
@@ -29,6 +36,26 @@ public class AsyncConfig {
         executor.setMaxPoolSize(4);
         executor.setQueueCapacity(100);
         executor.setThreadNamePrefix("notif-async-");
+        executor.setTaskDecorator(new MdcPropagatingTaskDecorator());
+        executor.initialize();
+        return executor;
+    }
+
+    /**
+     * Backs {@code LiveTrackingBroadcaster.pushToUser} (Phase 7 §11.3/ADR-9 — see
+     * backend/docs/phase-7-live-trip-management.md) — a slow or unreachable passenger connection
+     * must never delay or fail the driver's own {@code POST /location} response, the same
+     * "additive, never disruptive" posture {@code notificationExecutor} already holds for
+     * notification delivery. Separate pool from {@code notificationExecutor} so a backlog in one
+     * delivery path can't starve the other.
+     */
+    @Bean("trackingBroadcastExecutor")
+    public Executor trackingBroadcastExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(4);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("tracking-broadcast-");
         executor.setTaskDecorator(new MdcPropagatingTaskDecorator());
         executor.initialize();
         return executor;
